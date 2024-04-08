@@ -16,7 +16,7 @@ def main():
 
     # Get the confidence and depth columns
     confidence = pred_prob['confidence']
-    depth = pred_prob['depth']
+    depth = pred_prob['time']
     # Filter depth and confidence as only values below 4 meters and above 1 are right
     # confidence = confidence[depth < 4000]
     # confidence = confidence[depth > 1000]

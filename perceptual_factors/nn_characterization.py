@@ -7,7 +7,17 @@ from PIL import Image
 import torch
 import pandas as pd
 
+"""
+    This script is used to characterize the semantic perception of the camera.
+    1. It initializes the camera stream
+    2. It loads a YOLOv5 model from ultralytics
+    3. It runs the inference on the camera stream
+    4. It saves the confidence of the detection for the center of certain detected classes (configure as required)
+"""
+
 def main() :
+    MODE = 'time' # 'time' or 'depth'
+
     # Configure depth and color streams
     config = rs.config()
     config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
@@ -58,21 +68,31 @@ def main() :
         for index, row in results.pandas().xyxy[0].iterrows():
             # Check if there is a bottle detection
             # Headers are ['xmin', 'ymin', 'xmax', 'ymax', 'confidence', 'class']
+            # These are the configured classes for the detection
             if row['name'] == 'bottle' or row['name'] == 'tv':
-                if row['name'] == 'bottle':
-                    found_bottle = True
-                # Save the confidence, the class and depth of the bottom pixel
+                # Save the confidence, the class and depth/time of the bottom pixel
                 print("Save reading")
                 bottle_bottom = np.array([row['xmin'], row['ymin']])
                 depth = depth_image[int(bottle_bottom[1]), int(bottle_bottom[0])]
                 # if depth <= 0:
                 #     continue
-                pred_prob = pred_prob.append({'confidence': row['confidence'], 'class': row['name'], 'depth': frame_seq}, ignore_index=True)
+                if MODE == 'time':
+                    pred_prob = pred_prob.append({'confidence': row['confidence'], 'class': row['name'], 'time': frame_seq}, ignore_index=True)
+                elif MODE == 'depth':
+                    pred_prob = pred_prob.append({'confidence': row['confidence'], 'class': row['name'], 'depth': depth}, ignore_index=True)
+                else:
+                    print("ERROR: Mode not recognized")
+                    exit(1)
+
+                # Specific for removing outliers in the final article results
+                if row['name'] == 'bottle': # TODO: add checks so the bottle is where expected (further remove outliers)
+                    found_bottle = True
+
                 # Save dataframe
                 pred_prob.to_csv('pred_prob.csv', index=False)
             
-        if not found_bottle:
-            pred_prob = pred_prob.append({'confidence': 0, 'class': 'bottle', 'depth': frame_seq}, ignore_index=True)
+        if not found_bottle and MODE == 'time':
+            pred_prob = pred_prob.append({'confidence': 0, 'class': 'bottle', 'time': frame_seq}, ignore_index=True)
             # Save dataframe
             pred_prob.to_csv('pred_prob.csv', index=False)
 
